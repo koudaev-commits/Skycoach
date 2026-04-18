@@ -5,6 +5,7 @@ const BLIZZARD_SEARCH_LOCALE_PATH = '/en-gb/search';
 const BLIZZARD_UI_LOCALE = '/en-gb';
 const MODEL_SCRIPT_PREFIX = '<script id="model">model = ';
 const PROFILE_STATE_PREFIX = 'var characterProfileInitialState = ';
+const SKYCOACH_WOW_BOOST_URL = 'https://skycoach.gg/wow-boost';
 
 const GEAR_SLOT_ORDER = [
   'head',
@@ -625,6 +626,9 @@ function attachGearRowTooltips(container) {
     };
     el.addEventListener('mouseenter', (e) => show(e.clientX, e.clientY));
     el.addEventListener('mousemove', (e) => {
+      if (e.target instanceof Element && e.target.closest('.armory-gear__skycoach-dot')) {
+        return;
+      }
       if (document.getElementById('armory-item-tooltip')?.classList.contains('is-visible')) {
         positionGearTooltip(e.clientX, e.clientY);
       }
@@ -635,6 +639,10 @@ function attachGearRowTooltips(container) {
       show(r.right + 8, r.top + 4);
     });
     el.addEventListener('blur', hideGearTooltip);
+    el.querySelectorAll('.armory-gear__skycoach-dot').forEach((link) => {
+      link.addEventListener('mouseenter', hideGearTooltip);
+      link.addEventListener('focus', hideGearTooltip);
+    });
   });
 }
 
@@ -762,7 +770,8 @@ function renderGearSection(gear) {
     let bisCell = '<span class="armory-gear__bis-na">—</span>';
     if (maxDbIlvl != null && ilvlNum != null) {
       if (maxDbIlvl > ilvlNum) {
-        bisCell = `<span class="armory-gear__bis-warn" title="В базе предметов 90 ур. для типа слота ${invTypeId} есть ilvl до ${maxDbIlvl} (у вас ${ilvlNum})">●</span><span class="armory-gear__bis-meta"> max ${escapeHtml(String(maxDbIlvl))}</span>`;
+        const skycoachLink = `<a class="armory-gear__skycoach-dot" href="${escapeHtml(SKYCOACH_WOW_BOOST_URL)}" target="_blank" rel="noopener noreferrer" title="Получить на Skycoach" aria-label="Получить на Skycoach">S</a>`;
+        bisCell = `<span class="armory-gear__bis-line"><span class="armory-gear__bis-warn" title="В базе предметов 90 ур. для типа слота ${invTypeId} есть ilvl до ${maxDbIlvl} (у вас ${ilvlNum})">●</span><span class="armory-gear__bis-meta"> max ${escapeHtml(String(maxDbIlvl))}</span>${skycoachLink}</span>`;
       } else {
         bisCell = `<span class="armory-gear__bis-ok" title="По базе: макс. ilvl для типа ${invTypeId} — ${maxDbIlvl}">✓</span>`;
       }
@@ -804,6 +813,45 @@ function renderGearSection(gear) {
           <tbody>${rows}</tbody>
         </table>
       </div>
+    </div>
+  `;
+}
+
+/**
+ * Есть ли хотя бы один слот с индикацией ● (ilvl ниже максимума по типу в базе).
+ * @param {unknown} gear
+ */
+function gearHasUnderBaseMaxSlots(gear) {
+  if (!gear || typeof gear !== 'object' || gear === null) {
+    return false;
+  }
+  for (const slot of GEAR_SLOT_ORDER) {
+    const item = gear[slot];
+    if (!item || typeof item !== 'object' || typeof item.name !== 'string') {
+      continue;
+    }
+    const ilvlNum = getItemIlvlNumeric(item);
+    const invTypeId = armoryItemToInventoryTypeId(item, slot);
+    const maxDbIlvl = getItemBaseMaxIlvlForInvType(invTypeId);
+    if (maxDbIlvl != null && ilvlNum != null && maxDbIlvl > ilvlNum) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function renderSkycoachBoostBanner() {
+  const url = SKYCOACH_WOW_BOOST_URL;
+  return `
+    <div class="armory-profile__section armory-skycoach-banner-wrap">
+      <a class="armory-skycoach-banner" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+        <span class="armory-skycoach-banner__glow" aria-hidden="true"></span>
+        <div class="armory-skycoach-banner__content">
+          <span class="armory-skycoach-banner__brand">Skycoach</span>
+          <p class="armory-skycoach-banner__headline">Получите максимум с предложениями от Skycoach</p>
+          <span class="armory-skycoach-banner__cta">WoW Boost на skycoach.gg →</span>
+        </div>
+      </a>
     </div>
   `;
 }
@@ -963,6 +1011,7 @@ function renderProfileView(data, profileUrl) {
 
   const statsHtml = renderStatsSection(ch.stats);
   const gearHtml = renderGearSection(ch.gear);
+  const skycoachBannerHtml = gearHasUnderBaseMaxSlots(ch.gear) ? renderSkycoachBoostBanner() : '';
   const specsHtml = renderSpecsSection(ch.specs, ch.spec);
   const pveHtml = renderPveSection(ch.pve);
 
@@ -984,6 +1033,7 @@ function renderProfileView(data, profileUrl) {
         </div>
       </div>
       ${gearHtml}
+      ${skycoachBannerHtml}
       <div class="armory-profile__meta-grid">${metaRows}</div>
       ${statsHtml}
       ${specsHtml}
