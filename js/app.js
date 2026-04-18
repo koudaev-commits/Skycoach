@@ -7,6 +7,12 @@ const MODEL_SCRIPT_PREFIX = '<script id="model">model = ';
 const PROFILE_STATE_PREFIX = 'var characterProfileInitialState = ';
 const SKYCOACH_WOW_BOOST_URL = 'https://skycoach.gg/wow-boost';
 
+/** Публичные CORS-прокси (порядок: сначала более стабильные для Blizzard). */
+const BLIZZARD_CORS_PROXIES = [
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
 const GEAR_SLOT_ORDER = [
   'head',
   'neck',
@@ -202,12 +208,36 @@ async function fetchBlizzardHtml(url) {
   } catch {
     /* CORS — fallback */
   }
-  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-  const res2 = await fetch(proxyUrl, { credentials: 'omit', cache: 'no-store' });
-  if (!res2.ok) {
-    throw new Error(`Запрос недоступен (HTTP ${res2.status}).`);
+  const timeoutMs = 28000;
+  let lastProblem = 'нет ответа';
+  for (const buildProxyUrl of BLIZZARD_CORS_PROXIES) {
+    const proxyUrl = buildProxyUrl(url);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res2 = await fetch(proxyUrl, {
+        credentials: 'omit',
+        cache: 'no-store',
+        signal: ctrl.signal,
+      });
+      if (!res2.ok) {
+        lastProblem = `HTTP ${res2.status}`;
+        continue;
+      }
+      const text = await res2.text();
+      if (text && text.length > 200) {
+        return text;
+      }
+      lastProblem = 'пустой или слишком короткий ответ';
+    } catch (e) {
+      lastProblem = e instanceof Error ? e.message : String(e);
+    } finally {
+      clearTimeout(timer);
+    }
   }
-  return await res2.text();
+  throw new Error(
+    `Не удалось загрузить страницу Blizzard через прокси (${lastProblem}). Попробуйте позже или другую сеть.`,
+  );
 }
 
 /**
@@ -1194,7 +1224,7 @@ function renderLanding() {
       <p class="armory-footnote">
         Поиск совпадает с официальной страницей
         <a href="https://worldofwarcraft.blizzard.com/en-gb/search" target="_blank" rel="noopener noreferrer">worldofwarcraft.blizzard.com/…/search</a>.
-        Карточки открывают профиль здесь (данные с armory). При блокировке CORS используется allorigins.win.
+        Карточки открывают профиль здесь (данные с armory). При блокировке CORS запрос идёт через публичные прокси (codetabs / allorigins).
       </p>
     </div>
   `;
