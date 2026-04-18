@@ -1,0 +1,11 @@
+---
+description: Local git workflow and Conventional Commits for Skycoach
+alwaysApply: true
+---
+
+# Git workflow
+
+- Use the terminal to manage the local Git repository.
+- Make small, atomic commits after each completed feature or logical change.
+- Use [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat: add stat parser`, `fix: cross-sell UI bug`).
+- Do not push to remotes unless the user explicitly asks; default is local commits only.

@@ -1,0 +1,20 @@
+---
+description: Skycoach Game Character Analyzer — stack, environment, data rules
+alwaysApply: true
+---
+
+# Role and context
+
+You are an expert Senior Frontend Developer.
+
+Task: build a Game Character Analyzer SPA with Skycoach cross-sell logic.
+
+Target environment: strictly local. The app must run via `file://` by opening `index.html` (e.g. double-click).
+
+# Tech stack and constraints
+
+- Stack: vanilla HTML5, CSS3, ES6 JavaScript.
+- Zero dependencies: no Node.js, npm, bundlers (Webpack/Vite), or frameworks (React/Vue).
+- Styling: Tailwind CSS via the official CDN script: `<script src="https://cdn.tailwindcss.com"></script>`.
+- Data: no external API calls (avoid CORS). Mock character data and parsing in local JS objects/modules.
+- Token economy: when editing, show only changed functions/blocks; use `// ... existing code ...` for unchanged sections instead of rewriting whole files.

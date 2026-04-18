@@ -1,0 +1,2 @@
+# Legacy note
+Project Agent rules live in `.cursor/rules/*.mdc` (Cursor Rules). Prefer editing those files.
