@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 /**
- * Фильтрация DBC/DB2-выгрузки предметов (CSV).
+ * Сжатие DBC/DB2-выгрузки предметов (CSV): только нужные столбцы, все строки сохраняются.
  *
- * 1) Оставляет только столбцы: ID, StatPercentEditor_0..3, StatModifier_bonusStat_0..3,
- *    ItemLevel, RequiredLevel, InventoryType
- * 2) Оставляет строки с RequiredLevel = 90
+ * Оставляет столбцы: ID, StatPercentEditor_0..3, StatModifier_bonusStat_0..3,
+ * ItemLevel, RequiredLevel, InventoryType
  *
  * Использование:
  *   node scripts/filter-items-csv.mjs путь\к\items.csv
- *   node scripts/filter-items-csv.mjs items.csv --out data\items-lvl90-slim.csv
+ *   node scripts/filter-items-csv.mjs items.csv --out data\items-slim.csv
  */
 
 import fs from 'fs';
@@ -28,8 +27,6 @@ const KEEP_COLUMNS = [
   'RequiredLevel',
   'InventoryType',
 ];
-
-const REQUIRED_LEVEL = 90;
 
 /**
  * @param {string} line
@@ -94,7 +91,7 @@ function parseArgs(argv) {
   if (!outPath) {
     const dir = path.dirname(inputPath);
     const base = path.basename(inputPath, path.extname(inputPath));
-    outPath = path.join(dir, `${base}-lvl90-slim.csv`);
+    outPath = path.join(dir, `${base}-slim.csv`);
   }
   return { inputPath, outPath };
 }
@@ -117,7 +114,7 @@ function main() {
   const header = parseCsvLine(lines[0]);
   const index = new Map(header.map((h, i) => [h.trim(), i]));
 
-  for (const col of [...KEEP_COLUMNS, 'RequiredLevel']) {
+  for (const col of KEEP_COLUMNS) {
     if (!index.has(col)) {
       console.error(`В заголовке нет столбца: ${col}`);
       console.error(`Есть: ${header.slice(0, 20).join(', ')}${header.length > 20 ? '…' : ''}`);
@@ -125,32 +122,28 @@ function main() {
     }
   }
 
-  const reqIdx = index.get('RequiredLevel');
   const keepIdx = KEEP_COLUMNS.map((c) => index.get(c));
 
   const outLines = [KEEP_COLUMNS.join(',')];
-  let kept = 0;
-  let skipped = 0;
+  let dataRows = 0;
+  let skippedShort = 0;
 
   for (let r = 1; r < lines.length; r++) {
     const row = parseCsvLine(lines[r]);
     if (row.length < header.length) {
-      continue;
-    }
-    const reqVal = row[reqIdx]?.trim() ?? '';
-    const reqNum = parseInt(reqVal, 10);
-    if (reqVal === '' || Number.isNaN(reqNum) || reqNum !== REQUIRED_LEVEL) {
-      skipped++;
+      skippedShort++;
       continue;
     }
     const slice = keepIdx.map((i) => escapeCsvCell(row[i] ?? ''));
     outLines.push(slice.join(','));
-    kept++;
+    dataRows++;
   }
 
   fs.writeFileSync(outPath, outLines.join('\n') + '\n', 'utf8');
   console.error(`Записано: ${outPath}`);
-  console.error(`Строк данных (после фильтра): ${kept}; отброшено по уровню: ${skipped}; всего строк в файле (с заголовком): ${lines.length}`);
+  console.error(
+    `Строк данных: ${dataRows}; пропущено (короче заголовка): ${skippedShort}; исходно строк с данными: ${lines.length - 1}`,
+  );
 }
 
 main();
