@@ -983,9 +983,9 @@ function renderProfileView(data, profileUrl) {
           ${guildBlock}
         </div>
       </div>
+      ${gearHtml}
       <div class="armory-profile__meta-grid">${metaRows}</div>
       ${statsHtml}
-      ${gearHtml}
       ${specsHtml}
       ${pveHtml}
       ${blizzardLink}
