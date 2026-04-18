@@ -7,11 +7,28 @@ const MODEL_SCRIPT_PREFIX = '<script id="model">model = ';
 const PROFILE_STATE_PREFIX = 'var characterProfileInitialState = ';
 const SKYCOACH_WOW_BOOST_URL = 'https://skycoach.gg/wow-boost';
 
-/** Публичные CORS-прокси (порядок: сначала более стабильные для Blizzard). */
+/**
+ * Публичные CORS-прокси (несколько цепочек — allorigins часто отдаёт 522 к Blizzard).
+ * Форматы разные; порядок подобран по живучести.
+ */
 const BLIZZARD_CORS_PROXIES = [
-  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://cors.eu.org/${encodeURIComponent(u)}`,
+  (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
+
+/**
+ * @param {string} text
+ */
+function looksLikeBlizzardHtml(text) {
+  if (!text || text.length < 200) {
+    return false;
+  }
+  if (/error code:\s*522/i.test(text) || /\b522\b.*cloudflare/i.test(text)) {
+    return false;
+  }
+  return /worldofwarcraft|blizzard|characterProfileInitialState|id="model"/i.test(text);
+}
 
 const GEAR_SLOT_ORDER = [
   'head',
@@ -208,7 +225,7 @@ async function fetchBlizzardHtml(url) {
   } catch {
     /* CORS — fallback */
   }
-  const timeoutMs = 28000;
+  const timeoutMs = 35000;
   let lastProblem = 'нет ответа';
   for (const buildProxyUrl of BLIZZARD_CORS_PROXIES) {
     const proxyUrl = buildProxyUrl(url);
@@ -225,10 +242,10 @@ async function fetchBlizzardHtml(url) {
         continue;
       }
       const text = await res2.text();
-      if (text && text.length > 200) {
+      if (looksLikeBlizzardHtml(text)) {
         return text;
       }
-      lastProblem = 'пустой или слишком короткий ответ';
+      lastProblem = 'прокси вернул не HTML Blizzard (или таймаут 522)';
     } catch (e) {
       lastProblem = e instanceof Error ? e.message : String(e);
     } finally {
@@ -236,7 +253,7 @@ async function fetchBlizzardHtml(url) {
     }
   }
   throw new Error(
-    `Не удалось загрузить страницу Blizzard через прокси (${lastProblem}). Попробуйте позже или другую сеть.`,
+    `Не удалось загрузить страницу Blizzard (${lastProblem}). Проверьте интернет, отключите блокировщик рекламы для этого сайта или попробуйте позже.`,
   );
 }
 
@@ -1224,7 +1241,7 @@ function renderLanding() {
       <p class="armory-footnote">
         Поиск совпадает с официальной страницей
         <a href="https://worldofwarcraft.blizzard.com/en-gb/search" target="_blank" rel="noopener noreferrer">worldofwarcraft.blizzard.com/…/search</a>.
-        Карточки открывают профиль здесь (данные с armory). При блокировке CORS запрос идёт через публичные прокси (codetabs / allorigins).
+        Карточки открывают профиль здесь (данные с armory). При блокировке CORS запрос идёт через публичные прокси; блокировщики иногда режут их — при ошибке попробуйте отключить на время.
       </p>
     </div>
   `;
