@@ -55,6 +55,15 @@ body.armory-body {
   flex-direction: column;
   align-items: center;
   padding: 2.5rem 1rem 3rem;
+  width: 100%;
+}
+
+.armory-main {
+  width: 100%;
+  max-width: 72rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* Top bar — reminiscent of Blizzard game chrome */
@@ -231,12 +240,177 @@ body.armory-body {
   outline-offset: 2px;
 }
 
+.armory-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.35) brightness(0.75);
+  opacity: 0.85;
+}
+
+.armory-status {
+  width: 100%;
+  max-width: 42rem;
+  margin: 1.25rem auto 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-align: center;
+  border-radius: 2px;
+}
+
+.armory-status--error {
+  color: #f0c4c0;
+  background: rgba(120, 32, 24, 0.35);
+  border: 1px solid rgba(192, 57, 43, 0.45);
+}
+
+.armory-status--info {
+  color: var(--armory-text-muted);
+  border: 1px solid rgba(92, 77, 50, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.armory-results {
+  width: 100%;
+  margin-top: 2rem;
+}
+
+.armory-results__heading {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--armory-gold);
+  text-align: center;
+}
+
+.armory-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .armory-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .armory-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.armory-char {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  padding: 0.85rem 1rem 1rem;
+  background: linear-gradient(165deg, var(--armory-panel-top) 0%, var(--armory-panel-bottom) 100%);
+  border: 1px solid var(--armory-border-dark);
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px var(--armory-border-mid),
+    inset 0 1px 0 rgba(244, 226, 166, 0.06),
+    0 10px 28px rgba(0, 0, 0, 0.4);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.08s ease;
+}
+
+.armory-char:hover {
+  border-color: var(--armory-gold-dim);
+  box-shadow:
+    0 0 0 1px var(--armory-gold-dim),
+    inset 0 1px 0 rgba(244, 226, 166, 0.1),
+    0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.armory-char:active {
+  transform: translateY(1px);
+}
+
+.armory-char--horde {
+  border-left: 3px solid #b30000;
+}
+
+.armory-char--alliance {
+  border-left: 3px solid #0078d7;
+}
+
+.armory-char__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.armory-char__avatar {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 2px;
+  border: 1px solid var(--armory-border-mid);
+  background-size: cover;
+  background-position: center top;
+  background-color: #0a0806;
+}
+
+.armory-char__meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.armory-char__name {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--armory-gold-glow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armory-char__line {
+  margin-top: 0.2rem;
+  font-size: 0.88rem;
+  color: var(--armory-text);
+}
+
+.armory-char__line b {
+  color: var(--armory-gold);
+  font-weight: 600;
+}
+
+.armory-char__realm {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--armory-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .armory-footnote {
   margin: 2rem auto 0;
-  max-width: 28rem;
+  max-width: 36rem;
   text-align: center;
   font-size: 0.75rem;
   line-height: 1.5;
   color: var(--armory-text-muted);
   letter-spacing: 0.04em;
+}
+
+.armory-footnote a {
+  color: var(--armory-gold-glow);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.armory-footnote a:hover {
+  color: var(--armory-text);
 }
