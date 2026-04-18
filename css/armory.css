@@ -674,22 +674,34 @@ button.armory-char-btn {
   font-size: 0.8rem;
 }
 
-.armory-gear__tier {
-  vertical-align: top;
+.armory-gear__bis {
+  vertical-align: middle;
   font-size: 0.82rem;
   line-height: 1.35;
+  white-space: nowrap;
 }
 
-.armory-gear__tier-pct {
-  display: block;
-  font-weight: 600;
-  color: var(--armory-gold-glow);
+.armory-gear__bis-warn {
+  color: #e74c3c;
+  font-size: 1.15rem;
+  line-height: 1;
+  margin-right: 0.35rem;
+  text-shadow: 0 0 8px rgba(231, 76, 60, 0.45);
 }
 
-.armory-gear__tier-note {
-  display: block;
-  font-size: 0.72rem;
+.armory-gear__bis-meta {
+  font-size: 0.75rem;
   color: var(--armory-text-muted);
+}
+
+.armory-gear__bis-ok {
+  color: #27ae60;
+  font-size: 0.95rem;
+}
+
+.armory-gear__bis-na {
+  color: var(--armory-text-muted);
+  font-size: 0.85rem;
 }
 
 .armory-gear__slot {

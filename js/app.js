@@ -46,6 +46,53 @@ const GEAR_SLOT_RU = {
   offHand: 'Левая рука',
 };
 
+/** InventoryType из Item.db2 (число), fallback по ключу слота в объекте gear Armory. */
+const GEAR_SLOT_TO_INV_TYPE = {
+  head: 1,
+  neck: 2,
+  shoulder: 3,
+  back: 16,
+  chest: 5,
+  tabard: 19,
+  hand: 10,
+  waist: 6,
+  leg: 7,
+  foot: 8,
+  leftFinger: 11,
+  rightFinger: 11,
+  leftTrinket: 12,
+  rightTrinket: 12,
+  weapon: 13,
+  mainHand: 13,
+  offHand: 14,
+};
+
+/** Соответствие inventory_type.type (Armory API) → InventoryType DBC. WEAPON обрабатывается отдельно. */
+const ARMORY_INV_TYPE_STRING_TO_INV = {
+  HEAD: 1,
+  NECK: 2,
+  SHOULDER: 3,
+  BODY: 4,
+  CHEST: 5,
+  ROBE: 20,
+  WAIST: 6,
+  LEGS: 7,
+  FEET: 8,
+  WRIST: 9,
+  WRISTS: 9,
+  HAND: 10,
+  HANDS: 10,
+  FINGER: 11,
+  TRINKET: 12,
+  SHIELD: 14,
+  HOLDABLE: 14,
+  RANGED: 15,
+  RANGEDRIGHT: 26,
+  CLOAK: 16,
+  TABARD: 19,
+  RELIC: 28,
+};
+
 const STAT_SLUG_RU = {
   health: 'Здоровье',
   mana: 'Мана',
@@ -245,24 +292,59 @@ function getItemLevelDisplay(item) {
 }
 
 /**
- * Заглушка «силы» слота относительно условного топа BiS (без реальных таблиц предметов).
- * @param {string} slotKey
- * @param {number | null} ilvl
+ * Макс. ilvl в локальной базе ItemBase-lvl90-slim (по InventoryType).
+ * @param {number | null} invTypeId
+ * @returns {number | null}
  */
-function stubTierVsBiS(slotKey, ilvl) {
-  const seed = `${slotKey}:${ilvl ?? 0}`;
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) {
-    h = (h * 33 + seed.charCodeAt(i)) | 0;
+function getItemBaseMaxIlvlForInvType(invTypeId) {
+  const map =
+    typeof window !== 'undefined' ? window.__ITEM_BASE_MAX_ILVL_BY_INV_TYPE : null;
+  if (map == null || invTypeId == null || Number.isNaN(invTypeId)) {
+    return null;
   }
-  const pct = 60 + (Math.abs(h) % 38);
-  const grade = pct >= 94 ? 'S' : pct >= 87 ? 'A' : pct >= 78 ? 'B' : pct >= 68 ? 'C' : 'D';
-  return {
-    pct,
-    grade,
-    label: `${pct}%`,
-    note: `Грейд ${grade} · заглушка к топу BiS`,
-  };
+  const v = map[String(invTypeId)];
+  if (v === undefined || v === null) {
+    return null;
+  }
+  return Number(v);
+}
+
+/**
+ * Сопоставление предмета Armory с числом InventoryType из CSV.
+ * @param {Record<string, unknown>} item
+ * @param {string} gearSlotKey
+ * @returns {number | null}
+ */
+function armoryItemToInventoryTypeId(item, gearSlotKey) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+  const inv = item.inventory_type;
+  if (inv && typeof inv === 'object' && typeof inv.id === 'number' && inv.id > 0) {
+    return inv.id;
+  }
+  const typeStr = inv && typeof inv.type === 'string' ? inv.type.toUpperCase() : '';
+  const nameLower = inv && typeof inv.name === 'string' ? inv.name.toLowerCase() : '';
+  const slotStr = item.slot && typeof item.slot.type === 'string' ? item.slot.type : '';
+
+  if (
+    nameLower.includes('two-hand') ||
+    nameLower.includes('two hand') ||
+    nameLower.includes('fishing pole')
+  ) {
+    return 17;
+  }
+  if (typeStr === 'SHIELD' || typeStr === 'HOLDABLE') {
+    return 14;
+  }
+  if (typeStr === 'WEAPON') {
+    return 13;
+  }
+  if (typeStr && Object.prototype.hasOwnProperty.call(ARMORY_INV_TYPE_STRING_TO_INV, typeStr)) {
+    return ARMORY_INV_TYPE_STRING_TO_INV[typeStr];
+  }
+  const fb = GEAR_SLOT_TO_INV_TYPE[gearSlotKey];
+  return fb !== undefined ? fb : null;
 }
 
 /**
@@ -675,7 +757,18 @@ function renderGearSection(gear) {
     const qClass = q ? ` armory-gear__name--q-${escapeHtml(q.toLowerCase())}` : '';
     const ilvlDisp = getItemLevelDisplay(item);
     const ilvlNum = getItemIlvlNumeric(item);
-    const stub = stubTierVsBiS(slot, ilvlNum);
+    const invTypeId = armoryItemToInventoryTypeId(item, slot);
+    const maxDbIlvl = getItemBaseMaxIlvlForInvType(invTypeId);
+    let bisCell = '<span class="armory-gear__bis-na">—</span>';
+    if (maxDbIlvl != null && ilvlNum != null) {
+      if (maxDbIlvl > ilvlNum) {
+        bisCell = `<span class="armory-gear__bis-warn" title="В базе предметов 90 ур. для типа слота ${invTypeId} есть ilvl до ${maxDbIlvl} (у вас ${ilvlNum})">●</span><span class="armory-gear__bis-meta"> max ${escapeHtml(String(maxDbIlvl))}</span>`;
+      } else {
+        bisCell = `<span class="armory-gear__bis-ok" title="По базе: макс. ilvl для типа ${invTypeId} — ${maxDbIlvl}">✓</span>`;
+      }
+    } else if (invTypeId != null && maxDbIlvl == null) {
+      bisCell = `<span class="armory-gear__bis-na" title="Нет строк с InventoryType ${invTypeId} в базе">?</span>`;
+    }
     const iconUrl = getItemIconUrl(item);
     const iconCell = iconUrl
       ? `<td class="armory-gear__icon"><img src="${escapeHtml(iconUrl)}" width="40" height="40" alt="" loading="lazy" decoding="async" /></td>`
@@ -685,7 +778,7 @@ function renderGearSection(gear) {
       <td class="armory-gear__slot">${escapeHtml(slotLabel)}</td>
       <td class="armory-gear__name${qClass}">${escapeHtml(item.name)}</td>
       <td class="armory-gear__ilvl">${escapeHtml(ilvlDisp)}</td>
-      <td class="armory-gear__tier"><span class="armory-gear__tier-pct">${escapeHtml(stub.label)}</span><span class="armory-gear__tier-note">${escapeHtml(stub.note)}</span></td>
+      <td class="armory-gear__bis">${bisCell}</td>
     </tr>`;
   })
     .filter(Boolean)
@@ -696,7 +789,7 @@ function renderGearSection(gear) {
   return `
     <div class="armory-profile__section">
       <h3 class="armory-profile__section-title">Экипировка</h3>
-      <p class="armory-gear-hint">Наведите на строку или сфокусируйте её — полная подсказка предмета, как в Armory.</p>
+      <p class="armory-gear-hint">Наведите на строку — тултип Armory. Столбец «К базе»: сравнение ilvl с максимумом по слоту из ItemBase-lvl90-slim (● — в базе есть выше).</p>
       <div class="armory-profile__table-wrap">
         <table class="armory-gear-table">
           <thead>
@@ -705,7 +798,7 @@ function renderGearSection(gear) {
               <th>Слот</th>
               <th>Предмет</th>
               <th>Ур. предмета</th>
-              <th>К условному топу <span class="armory-th-sub">(заглушка)</span></th>
+              <th>К базе <span class="armory-th-sub">(max ilvl по типу слота)</span></th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
