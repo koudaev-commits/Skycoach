@@ -610,6 +610,23 @@ button.armory-char-btn {
   border-bottom: 1px solid rgba(92, 77, 50, 0.25);
 }
 
+.armory-gear-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  color: var(--armory-text-muted);
+  line-height: 1.4;
+}
+
+.armory-th-sub {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--armory-text-muted);
+  margin-top: 0.2rem;
+}
+
 .armory-gear-table th {
   font-family: var(--font-display);
   font-size: 0.68rem;
@@ -617,6 +634,62 @@ button.armory-char-btn {
   text-transform: uppercase;
   color: var(--armory-text-muted);
   background: rgba(0, 0, 0, 0.35);
+}
+
+.armory-gear__th-icon {
+  width: 3.25rem;
+}
+
+.armory-gear-row {
+  cursor: help;
+  outline: none;
+  transition: background 0.12s ease;
+}
+
+.armory-gear-row:hover,
+.armory-gear-row:focus-visible {
+  background: rgba(199, 166, 88, 0.08);
+}
+
+.armory-gear-row:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--armory-gold-dim);
+}
+
+.armory-gear__icon {
+  width: 3.25rem;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.armory-gear__icon img {
+  display: block;
+  margin: 0 auto;
+  border-radius: 2px;
+  border: 1px solid var(--armory-border-mid);
+  background: #0a0806;
+}
+
+.armory-gear__icon--empty {
+  color: var(--armory-text-muted);
+  font-size: 0.8rem;
+}
+
+.armory-gear__tier {
+  vertical-align: top;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.armory-gear__tier-pct {
+  display: block;
+  font-weight: 600;
+  color: var(--armory-gold-glow);
+}
+
+.armory-gear__tier-note {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--armory-text-muted);
 }
 
 .armory-gear__slot {
@@ -703,6 +776,97 @@ button.armory-char-btn {
 
 .armory-profile__source a:hover {
   color: var(--armory-gold-glow);
+}
+
+/* Item tooltip (fixed, WoW-like lines) */
+.armory-item-tooltip {
+  position: fixed;
+  z-index: 10050;
+  max-width: 22.5rem;
+  padding: 0.7rem 0.95rem 0.85rem;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.08s ease;
+  background: linear-gradient(180deg, #14110d 0%, #0a0806 100%);
+  border: 1px solid var(--armory-border-mid);
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 12px 40px rgba(0, 0, 0, 0.75);
+  font-size: 0.8rem;
+  line-height: 1.42;
+  color: #eceae4;
+}
+
+.armory-item-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.armory-tip-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  margin-bottom: 0.35rem;
+}
+
+.armory-tip-line {
+  margin: 0.12rem 0;
+}
+
+.armory-tip-muted {
+  color: #9d9d9d;
+}
+
+.armory-tip-gold {
+  color: var(--armory-gold);
+}
+
+.armory-tip-ilvl {
+  color: var(--armory-gold-glow);
+  font-weight: 600;
+}
+
+.armory-tip-enchant {
+  color: #0cf;
+}
+
+.armory-tip-socket {
+  color: #a335ee;
+}
+
+.armory-tip-use {
+  color: #0f0;
+}
+
+.armory-tip-set {
+  color: #0f0;
+}
+
+.armory-tip-q-poor {
+  color: #9d9d9d;
+}
+.armory-tip-q-common {
+  color: #e8e8e8;
+}
+.armory-tip-q-uncommon {
+  color: #1eff00;
+}
+.armory-tip-q-rare {
+  color: #0070dd;
+}
+.armory-tip-q-epic {
+  color: #a335ee;
+}
+.armory-tip-q-legendary {
+  color: #ff8000;
+}
+.armory-tip-q-artifact {
+  color: #e6cc80;
+}
+.armory-tip-q-heirloom {
+  color: #0cf;
 }
 
 .armory-char--horde {

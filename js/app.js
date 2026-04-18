@@ -188,6 +188,374 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+/** Пока открыт профиль — для тултипов по строкам таблицы. */
+let profileGearCache = /** @type {Record<string, unknown> | null} */ (null);
+
+/**
+ * @param {Record<string, unknown> | null | undefined} c
+ */
+function rgbaFromBlizzardColor(c) {
+  if (!c || typeof c !== 'object') {
+    return '';
+  }
+  const a = typeof c.a === 'number' ? c.a : 1;
+  const r = typeof c.r === 'number' ? c.r : 255;
+  const g = typeof c.g === 'number' ? c.g : 255;
+  const b = typeof c.b === 'number' ? c.b : 255;
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/**
+ * @param {Record<string, unknown>} item
+ */
+function getItemIconUrl(item) {
+  const assets = item.media && item.media.content && item.media.content.assets;
+  if (!Array.isArray(assets)) {
+    return '';
+  }
+  const icon = assets.find((a) => a && a.key === 'icon');
+  return icon && typeof icon.value === 'string' ? icon.value : '';
+}
+
+/**
+ * @param {Record<string, unknown>} item
+ */
+function getItemIlvlNumeric(item) {
+  const L = item.level;
+  if (L && typeof L === 'object' && typeof L.value === 'number') {
+    return L.value;
+  }
+  return null;
+}
+
+/**
+ * @param {Record<string, unknown>} item
+ */
+function getItemLevelDisplay(item) {
+  const L = item.level;
+  if (L && typeof L === 'object') {
+    if (typeof L.display_string === 'string') {
+      return L.display_string;
+    }
+    if (typeof L.value === 'number') {
+      return String(L.value);
+    }
+  }
+  return '—';
+}
+
+/**
+ * Заглушка «силы» слота относительно условного топа BiS (без реальных таблиц предметов).
+ * @param {string} slotKey
+ * @param {number | null} ilvl
+ */
+function stubTierVsBiS(slotKey, ilvl) {
+  const seed = `${slotKey}:${ilvl ?? 0}`;
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 33 + seed.charCodeAt(i)) | 0;
+  }
+  const pct = 60 + (Math.abs(h) % 38);
+  const grade = pct >= 94 ? 'S' : pct >= 87 ? 'A' : pct >= 78 ? 'B' : pct >= 68 ? 'C' : 'D';
+  return {
+    pct,
+    grade,
+    label: `${pct}%`,
+    note: `Грейд ${grade} · заглушка к топу BiS`,
+  };
+}
+
+/**
+ * Текст тултипа в духе Armory: строки из display_string в данных предмета Blizzard.
+ * @param {Record<string, unknown>} item
+ */
+function buildItemTooltipHtml(item) {
+  if (!item || typeof item !== 'object') {
+    return '';
+  }
+  const parts = [];
+
+  const name = typeof item.name === 'string' ? item.name : '';
+  const qType =
+    item.quality && typeof item.quality === 'object' && typeof item.quality.type === 'string'
+      ? item.quality.type.toLowerCase()
+      : '';
+  const qClass = qType ? `armory-tip-q-${escapeHtml(qType)}` : '';
+  parts.push(`<div class="armory-tip-name ${qClass}">${escapeHtml(name)}</div>`);
+
+  if (item.quality && typeof item.quality.name === 'string') {
+    parts.push(`<div class="armory-tip-line armory-tip-muted">${escapeHtml(item.quality.name)}</div>`);
+  }
+
+  if (item.binding && typeof item.binding.name === 'string') {
+    parts.push(`<div class="armory-tip-line armory-tip-muted">${escapeHtml(item.binding.name)}</div>`);
+  }
+
+  const inv =
+    item.inventory_type && typeof item.inventory_type.name === 'string' ? item.inventory_type.name : '';
+  const sub =
+    item.item_subclass && typeof item.item_subclass.name === 'string' ? item.item_subclass.name : '';
+  if (inv || sub) {
+    parts.push(
+      `<div class="armory-tip-line armory-tip-gold">${escapeHtml([inv, sub].filter(Boolean).join(' • '))}</div>`,
+    );
+  }
+
+  if (item.level && typeof item.level === 'object' && typeof item.level.display_string === 'string') {
+    parts.push(
+      `<div class="armory-tip-line armory-tip-ilvl">${escapeHtml(item.level.display_string)}</div>`,
+    );
+  }
+
+  const uq = item.unique_equipped;
+  if (typeof uq === 'string') {
+    parts.push(`<div class="armory-tip-line armory-tip-muted">${escapeHtml(uq)}</div>`);
+  } else if (uq && typeof uq === 'object' && typeof uq.display_string === 'string') {
+    parts.push(`<div class="armory-tip-line armory-tip-muted">${escapeHtml(uq.display_string)}</div>`);
+  }
+
+  const weapon = item.weapon;
+  if (weapon && typeof weapon === 'object') {
+    const w = weapon;
+    if (w.damage && typeof w.damage.display_string === 'string') {
+      parts.push(`<div class="armory-tip-line">${escapeHtml(w.damage.display_string)}</div>`);
+    }
+    if (w.attack_speed && typeof w.attack_speed.display_string === 'string') {
+      parts.push(`<div class="armory-tip-line">${escapeHtml(w.attack_speed.display_string)}</div>`);
+    }
+    if (w.dps && typeof w.dps.display_string === 'string') {
+      parts.push(`<div class="armory-tip-line">${escapeHtml(w.dps.display_string)}</div>`);
+    }
+  }
+
+  if (item.armor && typeof item.armor === 'object' && typeof item.armor.value === 'number') {
+    parts.push(
+      `<div class="armory-tip-line">${escapeHtml(String(item.armor.value))} ${escapeHtml('Броня')}</div>`,
+    );
+  }
+
+  if (Array.isArray(item.stats)) {
+    item.stats.forEach((st) => {
+      if (!st || typeof st !== 'object' || !st.display || typeof st.display !== 'object') {
+        return;
+      }
+      const ds = st.display.display_string;
+      if (typeof ds !== 'string') {
+        return;
+      }
+      const col = st.display.color;
+      const style = col && typeof col === 'object' ? ` style="color:${rgbaFromBlizzardColor(col)}"` : '';
+      parts.push(`<div class="armory-tip-line"${style}>${escapeHtml(ds)}</div>`);
+    });
+  }
+
+  if (Array.isArray(item.enchantments)) {
+    item.enchantments.forEach((en) => {
+      if (!en || typeof en !== 'object') {
+        return;
+      }
+      const line =
+        typeof en.display_string === 'string'
+          ? en.display_string
+          : en.enchantment &&
+              typeof en.enchantment === 'object' &&
+              typeof en.enchantment.display_string === 'string'
+            ? en.enchantment.display_string
+            : '';
+      if (line) {
+        parts.push(`<div class="armory-tip-line armory-tip-enchant">${escapeHtml(line)}</div>`);
+      }
+    });
+  }
+
+  if (Array.isArray(item.sockets)) {
+    item.sockets.forEach((sock) => {
+      if (!sock || typeof sock !== 'object') {
+        return;
+      }
+      const line =
+        typeof sock.display_string === 'string'
+          ? sock.display_string
+          : sock.socket_type &&
+              typeof sock.socket_type === 'object' &&
+              typeof sock.socket_type.name === 'string'
+            ? sock.socket_type.name
+            : '';
+      if (line) {
+        parts.push(`<div class="armory-tip-line armory-tip-socket">${escapeHtml(line)}</div>`);
+      }
+    });
+  }
+
+  if (Array.isArray(item.spells)) {
+    item.spells.forEach((sp) => {
+      if (sp && typeof sp === 'object' && typeof sp.description === 'string') {
+        parts.push(`<div class="armory-tip-line armory-tip-use">${escapeHtml(sp.description)}</div>`);
+      }
+    });
+  }
+
+  if (item.set && typeof item.set === 'object') {
+    const set = item.set;
+    if (typeof set.display_string === 'string') {
+      parts.push(`<div class="armory-tip-line armory-tip-set">${escapeHtml(set.display_string)}</div>`);
+    }
+    if (Array.isArray(set.effects)) {
+      set.effects.forEach((ef) => {
+        if (ef && typeof ef === 'object' && typeof ef.display_string === 'string') {
+          parts.push(`<div class="armory-tip-line armory-tip-set">${escapeHtml(ef.display_string)}</div>`);
+        }
+      });
+    }
+  }
+
+  if (item.requirements && typeof item.requirements === 'object') {
+    const req = item.requirements;
+    ['level', 'playable_classes', 'faction', 'skill'].forEach((k) => {
+      const o = req[k];
+      if (o && typeof o === 'object' && typeof o.display_string === 'string') {
+        parts.push(`<div class="armory-tip-line armory-tip-muted">${escapeHtml(o.display_string)}</div>`);
+      }
+    });
+  }
+
+  if (
+    item.durability &&
+    typeof item.durability === 'object' &&
+    typeof item.durability.display_string === 'string'
+  ) {
+    parts.push(`<div class="armory-tip-line armory-tip-muted">${escapeHtml(item.durability.display_string)}</div>`);
+  }
+
+  if (
+    item.timewalker_level &&
+    typeof item.timewalker_level === 'object' &&
+    typeof item.timewalker_level.display_string === 'string'
+  ) {
+    parts.push(
+      `<div class="armory-tip-line armory-tip-muted">${escapeHtml(item.timewalker_level.display_string)}</div>`,
+    );
+  }
+
+  if (item.sell_price && typeof item.sell_price === 'object' && item.sell_price.display_strings) {
+    const ds = item.sell_price.display_strings;
+    if (typeof ds === 'object' && ds !== null) {
+      const header = typeof ds.header === 'string' ? ds.header : 'Sell Price:';
+      const gold = typeof ds.gold === 'string' ? ds.gold : '';
+      const silver = typeof ds.silver === 'string' ? ds.silver : '';
+      const copper = typeof ds.copper === 'string' ? ds.copper : '';
+      const priceStr = [gold && `${gold}g`, silver && `${silver}s`, copper && `${copper}c`]
+        .filter(Boolean)
+        .join(' ');
+      parts.push(
+        `<div class="armory-tip-line armory-tip-muted">${escapeHtml(header + (priceStr ? ` ${priceStr}` : ''))}</div>`,
+      );
+    }
+  }
+
+  return parts.join('');
+}
+
+function ensureItemTooltipEl() {
+  let tip = document.getElementById('armory-item-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'armory-item-tooltip';
+    tip.className = 'armory-item-tooltip';
+    tip.setAttribute('role', 'tooltip');
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+
+function hideGearTooltip() {
+  const tip = document.getElementById('armory-item-tooltip');
+  if (tip) {
+    tip.classList.remove('is-visible');
+    tip.innerHTML = '';
+  }
+}
+
+/**
+ * @param {number} x
+ * @param {number} y
+ */
+function positionGearTooltip(x, y) {
+  const tip = document.getElementById('armory-item-tooltip');
+  if (!tip || !tip.classList.contains('is-visible')) {
+    return;
+  }
+  const pad = 16;
+  tip.style.left = '-9999px';
+  tip.style.top = '0';
+  const w = tip.offsetWidth;
+  const h = tip.offsetHeight;
+  let left = x + pad;
+  let top = y + pad;
+  if (left + w > window.innerWidth - 10) {
+    left = x - w - 8;
+  }
+  if (top + h > window.innerHeight - 10) {
+    top = y - h - 8;
+  }
+  if (left < 8) {
+    left = 8;
+  }
+  if (top < 8) {
+    top = 8;
+  }
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+
+/**
+ * @param {HTMLElement} container
+ */
+function attachGearRowTooltips(container) {
+  ensureItemTooltipEl();
+  if (!window.__armoryGearTipScroll) {
+    window.__armoryGearTipScroll = true;
+    window.addEventListener(
+      'scroll',
+      () => {
+        hideGearTooltip();
+      },
+      true,
+    );
+  }
+  container.querySelectorAll('[data-gear-slot]').forEach((el) => {
+    const show = (clientX, clientY) => {
+      const slot = el.getAttribute('data-gear-slot');
+      if (!slot || !profileGearCache || typeof profileGearCache !== 'object') {
+        hideGearTooltip();
+        return;
+      }
+      const raw = profileGearCache[slot];
+      const item = raw && typeof raw === 'object' ? raw : null;
+      if (!item) {
+        hideGearTooltip();
+        return;
+      }
+      const tip = ensureItemTooltipEl();
+      tip.innerHTML = buildItemTooltipHtml(item);
+      tip.classList.add('is-visible');
+      positionGearTooltip(clientX, clientY);
+    };
+    el.addEventListener('mouseenter', (e) => show(e.clientX, e.clientY));
+    el.addEventListener('mousemove', (e) => {
+      if (document.getElementById('armory-item-tooltip')?.classList.contains('is-visible')) {
+        positionGearTooltip(e.clientX, e.clientY);
+      }
+    });
+    el.addEventListener('mouseleave', hideGearTooltip);
+    el.addEventListener('focus', () => {
+      const r = el.getBoundingClientRect();
+      show(r.right + 8, r.top + 4);
+    });
+    el.addEventListener('blur', hideGearTooltip);
+  });
+}
+
 /**
  * @param {Record<string, unknown> | null | undefined} v
  */
@@ -290,24 +658,34 @@ function renderStatsSection(stats) {
  */
 function renderGearSection(gear) {
   if (!gear || typeof gear !== 'object' || gear === null) {
+    profileGearCache = null;
     return '';
   }
+  profileGearCache = gear;
   const rows = GEAR_SLOT_ORDER.map((slot) => {
     const item = gear[slot];
     if (!item || typeof item !== 'object' || typeof item.name !== 'string') {
       return '';
     }
-    const ilvl = typeof item.level === 'number' ? item.level : '';
     const slotLabel = GEAR_SLOT_RU[slot] || slot;
     const q =
       item.quality && typeof item.quality === 'object' && typeof item.quality.type === 'string'
         ? item.quality.type
         : '';
     const qClass = q ? ` armory-gear__name--q-${escapeHtml(q.toLowerCase())}` : '';
-    return `<tr>
+    const ilvlDisp = getItemLevelDisplay(item);
+    const ilvlNum = getItemIlvlNumeric(item);
+    const stub = stubTierVsBiS(slot, ilvlNum);
+    const iconUrl = getItemIconUrl(item);
+    const iconCell = iconUrl
+      ? `<td class="armory-gear__icon"><img src="${escapeHtml(iconUrl)}" width="40" height="40" alt="" loading="lazy" decoding="async" /></td>`
+      : '<td class="armory-gear__icon armory-gear__icon--empty">—</td>';
+    return `<tr class="armory-gear-row" data-gear-slot="${escapeHtml(slot)}" tabindex="0" title="">
+      ${iconCell}
       <td class="armory-gear__slot">${escapeHtml(slotLabel)}</td>
       <td class="armory-gear__name${qClass}">${escapeHtml(item.name)}</td>
-      <td class="armory-gear__ilvl">${ilvl ? escapeHtml(String(ilvl)) : '—'}</td>
+      <td class="armory-gear__ilvl">${escapeHtml(ilvlDisp)}</td>
+      <td class="armory-gear__tier"><span class="armory-gear__tier-pct">${escapeHtml(stub.label)}</span><span class="armory-gear__tier-note">${escapeHtml(stub.note)}</span></td>
     </tr>`;
   })
     .filter(Boolean)
@@ -318,9 +696,18 @@ function renderGearSection(gear) {
   return `
     <div class="armory-profile__section">
       <h3 class="armory-profile__section-title">Экипировка</h3>
+      <p class="armory-gear-hint">Наведите на строку или сфокусируйте её — полная подсказка предмета, как в Armory.</p>
       <div class="armory-profile__table-wrap">
         <table class="armory-gear-table">
-          <thead><tr><th>Слот</th><th>Предмет</th><th>ilvl</th></tr></thead>
+          <thead>
+            <tr>
+              <th class="armory-gear__th-icon"></th>
+              <th>Слот</th>
+              <th>Предмет</th>
+              <th>Ур. предмета</th>
+              <th>К условному топу <span class="armory-th-sub">(заглушка)</span></th>
+            </tr>
+          </thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -567,6 +954,8 @@ function bindArmoryNav() {
 }
 
 function closeProfile() {
+  hideGearTooltip();
+  profileGearCache = null;
   const profileEl = document.getElementById('armory-profile');
   const resultsEl = document.getElementById('armory-results');
   if (profileEl) {
@@ -594,6 +983,7 @@ async function openProfile(relativePath) {
     resultsEl.classList.add('hidden');
   }
   profileEl.classList.remove('hidden');
+  hideGearTooltip();
   profileEl.innerHTML =
     '<div class="armory-profile armory-profile--loading"><p>Загрузка профиля…</p></div>';
 
@@ -611,6 +1001,7 @@ async function openProfile(relativePath) {
     }
     const data = JSON.parse(jsonStr);
     profileEl.innerHTML = `<div class="armory-profile">${renderProfileView(data, profileUrl)}</div>`;
+    attachGearRowTooltips(profileEl);
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Ошибка загрузки';
     profileEl.innerHTML = `<div class="armory-profile"><p class="armory-profile__err">${escapeHtml(msg)}</p>
