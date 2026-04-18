@@ -1,0 +1,242 @@
+/* WoW Armory–inspired shell: dark fantasy panels, bronze/gold frames, no images (file://-safe). */
+
+:root {
+  --armory-bg-deep: #070605;
+  --armory-bg-mid: #12100c;
+  --armory-panel-top: #1a1611;
+  --armory-panel-bottom: #0c0a08;
+  --armory-gold: #c7a658;
+  --armory-gold-dim: #8a7344;
+  --armory-gold-glow: #f4e2a6;
+  --armory-border-dark: #2a2218;
+  --armory-border-mid: #5c4d32;
+  --armory-text: #e8ddc8;
+  --armory-text-muted: #9a8e78;
+  --armory-danger: #c0392b;
+  --font-display: "Cinzel", "Palatino Linotype", serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body.armory-body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  color: var(--armory-text);
+  background-color: var(--armory-bg-deep);
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(199, 166, 88, 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 50% 120%, rgba(42, 34, 24, 0.5), transparent 50%),
+    linear-gradient(180deg, var(--armory-bg-mid) 0%, var(--armory-bg-deep) 45%, #040302 100%);
+}
+
+.armory-bg-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 75% 60% at 50% 35%, transparent 30%, rgba(0, 0, 0, 0.55) 100%);
+  z-index: 0;
+}
+
+.armory-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2.5rem 1rem 3rem;
+}
+
+/* Top bar — reminiscent of Blizzard game chrome */
+.armory-topbar {
+  width: 100%;
+  max-width: 56rem;
+  height: 3px;
+  margin-bottom: 2rem;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--armory-border-mid) 12%,
+    var(--armory-gold) 50%,
+    var(--armory-border-mid) 88%,
+    transparent 100%
+  );
+  box-shadow: 0 0 12px rgba(199, 166, 88, 0.35);
+  border-radius: 2px;
+}
+
+.armory-brand {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.armory-brand__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--armory-gold-glow);
+  text-shadow:
+    0 0 24px rgba(244, 226, 166, 0.25),
+    0 2px 0 rgba(0, 0, 0, 0.85);
+}
+
+.armory-brand__subtitle {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--armory-text-muted);
+}
+
+/* Ornate panel — Armory card feel */
+.armory-panel {
+  width: 100%;
+  max-width: 28rem;
+  padding: 2rem 1.75rem 2.25rem;
+  background: linear-gradient(165deg, var(--armory-panel-top) 0%, var(--armory-panel-bottom) 100%);
+  border: 1px solid var(--armory-border-dark);
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px var(--armory-border-mid),
+    0 0 0 2px var(--armory-border-dark),
+    inset 0 1px 0 rgba(244, 226, 166, 0.08),
+    inset 0 -20px 40px rgba(0, 0, 0, 0.35),
+    0 16px 48px rgba(0, 0, 0, 0.65);
+  position: relative;
+}
+
+.armory-panel::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(199, 166, 88, 0.12);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.armory-panel__heading {
+  margin: 0 0 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--armory-gold);
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.armory-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1.25rem;
+}
+
+.armory-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--armory-text-muted);
+}
+
+.armory-input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  color: var(--armory-text);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--armory-border-mid);
+  border-radius: 2px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.armory-input::placeholder {
+  color: var(--armory-text-muted);
+  opacity: 0.85;
+}
+
+.armory-input:hover {
+  border-color: var(--armory-gold-dim);
+}
+
+.armory-input:focus {
+  border-color: var(--armory-gold);
+  box-shadow:
+    0 0 0 1px rgba(199, 166, 88, 0.35),
+    inset 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.armory-actions {
+  margin-top: 0.25rem;
+}
+
+.armory-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.95rem 1.25rem;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #1a1208;
+  cursor: pointer;
+  border: none;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #e8d48a 0%, var(--armory-gold) 45%, #8a6f3a 100%);
+  box-shadow:
+    0 0 0 1px #4a3d24,
+    0 2px 0 #2a2218,
+    0 8px 24px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition:
+    filter 0.15s ease,
+    transform 0.08s ease;
+}
+
+.armory-btn:hover {
+  filter: brightness(1.08);
+}
+
+.armory-btn:active {
+  transform: translateY(1px);
+  filter: brightness(0.95);
+}
+
+.armory-btn:focus-visible {
+  outline: 2px solid var(--armory-gold-glow);
+  outline-offset: 2px;
+}
+
+.armory-footnote {
+  margin: 2rem auto 0;
+  max-width: 28rem;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--armory-text-muted);
+  letter-spacing: 0.04em;
+}
