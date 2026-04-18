@@ -10,10 +10,17 @@
  *   node scripts/fetch-wowhead-item-db.mjs
  *   node scripts/fetch-wowhead-item-db.mjs "https://www.wowhead.com/items/..."
  *   node scripts/fetch-wowhead-item-db.mjs --delay 200 --out data/wowhead-db/items.json
- *   WOWHEAD_COOKIE="cookie header value" node scripts/fetch-wowhead-item-db.mjs
+ *   WOWHEAD_COOKIE="..." node scripts/fetch-wowhead-item-db.mjs
  *
- * Если CloudFront отвечает 403: откройте Wowhead в браузере, скопируйте Cookie в WOWHEAD_COOKIE
- * или запустите скрипт с домашней сети / VPN.
+ * Cookie из файла (рекомендуется на Windows — без проблем с ; и кавычками в консоли):
+ *   Создайте файл, одна строка = полное значение заголовка Cookie из DevTools.
+ *   node scripts/fetch-wowhead-item-db.mjs --cookie-file data/wowhead-db/cookie.txt
+ *
+ * Проверка, проходит ли запрос (без полной выгрузки):
+ *   node scripts/fetch-wowhead-item-db.mjs --cookie-file data/wowhead-db/cookie.txt --probe
+ *
+ * Если всё равно 403: другая сеть / VPN; расширение «cookies.txt» и экспорт для curl;
+ * либо база предметов через Blizzard Game Data API (без Wowhead).
  *
  * Ориентир по фильтрам: https://www.wowhead.com/items/...
  */
@@ -29,10 +36,21 @@ const DEFAULT_LIST_URL =
 
 const DEFAULT_HEADERS = {
   'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-  Accept: 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  Accept:
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate',
   Referer: 'https://www.wowhead.com/',
+  Origin: 'https://www.wowhead.com',
+  'Upgrade-Insecure-Requests': '1',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'same-origin',
+  'Sec-Fetch-User': '?1',
+  'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"Windows"',
 };
 
 /** Слоты в порядке от более длинных к коротким (чтобы не перепутать с подстроками). */
@@ -98,6 +116,8 @@ function parseArgs(argv) {
   let delayMs = 150;
   let maxPages = 0;
   let includeRawTooltip = false;
+  let cookieFile = '';
+  let probe = false;
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--out' && argv[i + 1]) {
@@ -106,15 +126,42 @@ function parseArgs(argv) {
       delayMs = Math.max(0, parseInt(argv[++i], 10) || 0);
     } else if (a === '--max-pages' && argv[i + 1]) {
       maxPages = Math.max(0, parseInt(argv[++i], 10) || 0);
+    } else if (a === '--cookie-file' && argv[i + 1]) {
+      cookieFile = path.resolve(process.cwd(), argv[++i]);
     } else if (a === '--raw-tooltip') {
       includeRawTooltip = true;
+    } else if (a === '--probe') {
+      probe = true;
     } else if (a.startsWith('http://') || a.startsWith('https://')) {
       listUrl = a;
     } else if (!a.startsWith('--')) {
       console.error(`Неизвестный аргумент: ${a}`);
     }
   }
-  return { listUrl, outFile, delayMs, maxPages, includeRawTooltip };
+  return { listUrl, outFile, delayMs, maxPages, includeRawTooltip, cookieFile, probe };
+}
+
+/**
+ * Полная строка Cookie: из переменной окружения или из файла (первая непустая строка).
+ * @param {string} cookieFile
+ */
+function loadCookieString(cookieFile) {
+  let cookie = (process.env.WOWHEAD_COOKIE || '').trim();
+  if (cookieFile) {
+    if (!fs.existsSync(cookieFile)) {
+      throw new Error(`Файл cookie не найден: ${cookieFile}`);
+    }
+    const raw = fs.readFileSync(cookieFile, 'utf8').replace(/^\uFEFF/, '');
+    const line = raw
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith('#'));
+    if (!line) {
+      throw new Error(`В ${cookieFile} нет непустой строки с Cookie (строки с # в начале игнорируются).`);
+    }
+    cookie = line;
+  }
+  return cookie;
 }
 
 function buildPageUrl(baseUrl, page) {
@@ -359,8 +406,17 @@ function normalizeItemRecord(id, json, opts) {
 }
 
 async function main() {
-  const { listUrl, outFile, delayMs, maxPages, includeRawTooltip } = parseArgs(process.argv);
-  const cookie = process.env.WOWHEAD_COOKIE || '';
+  const { listUrl, outFile, delayMs, maxPages, includeRawTooltip, cookieFile, probe } = parseArgs(
+    process.argv,
+  );
+  let cookie = '';
+  try {
+    cookie = loadCookieString(cookieFile);
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e);
+    process.exitCode = 1;
+    return;
+  }
   const extraHeaders = cookie ? { Cookie: cookie } : {};
 
   const outDir = path.dirname(outFile);
@@ -369,6 +425,20 @@ async function main() {
   console.error(`List URL: ${listUrl}`);
   console.error(`Output:   ${outFile}`);
   console.error(`Delay:    ${delayMs} ms between requests`);
+  console.error(`Cookie:   ${cookie ? `да (${cookie.length} символов)` : 'нет'}`);
+
+  if (probe) {
+    console.error('--- probe: один GET списка ---');
+    const { ok, status, text, url } = await fetchListPage(listUrl, extraHeaders);
+    console.error(`HTTP ${status} ok=${ok} finalUrl=${url}`);
+    console.error(text.slice(0, 600).replace(/\s+/g, ' '));
+    if (!ok || status === 403) {
+      console.error(
+        '\nЕсли снова 403: CloudFront часто режет Node.js даже с cookie. Варианты: другой IP/VPN; curl с -b и файлом cookie; Playwright в браузере; или данные через Blizzard API.',
+      );
+    }
+    return;
+  }
 
   const allIds = new Set();
   let pageIndex = 1;
